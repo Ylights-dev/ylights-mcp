@@ -20,6 +20,7 @@ h1 { font-size: 28px; font-weight: 600; margin-bottom: 24px; }
 .tools-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
 .tool-card { background: #fff; border: 1px solid #e5e5e5; border-radius: 12px; padding: 20px; cursor: pointer; transition: all 0.2s; }
 .tool-card:hover { border-color: #6E89FD; box-shadow: 0 4px 12px rgba(110,137,253,0.15); transform: translateY(-2px); }
+.tool-icon { width: 28px; height: 28px; margin-bottom: 8px; display: block; }
 .tool-name { font-size: 16px; font-weight: 600; margin-bottom: 8px; }
 .tool-desc { font-size: 13px; color: #666; line-height: 1.5; }
 .tool-category { display: inline-block; font-size: 11px; color: #6E89FD; background: rgba(110,137,253,0.1); padding: 2px 8px; border-radius: 4px; margin-bottom: 8px; }
@@ -73,6 +74,35 @@ let tools = [];
 let categories = ['Все'];
 let currentCategory = 'Все';
 let currentTool = null;
+
+const CATEGORY_ICONS = {
+  'Промпты': '/static/icons/prompty.svg',
+  'Реклама и маркетинг': '/static/icons/reklama.svg',
+  'Социальные сети': '/static/icons/social.svg',
+  'Бизнес и работа': '/static/icons/business.svg',
+  'Маркетплейсы': '/static/icons/marketplace.svg',
+  'Образование': '/static/icons/education.svg',
+  'Развлечения': '/static/icons/fun.svg',
+};
+function categoryIcon(cat) {
+  return CATEGORY_ICONS[cat] || '/static/icons/business.svg';
+}
+
+const TOOLS_WITH_OWN_ICON = new Set([
+  'prompt_veo3','prompt_veo3_character','prompt_veo3_location','prompt_veo3_dialog','prompt_sora2','prompt_enhancer',
+  'ad_ideas','yandex_direct_headers','landing_content','sms_mailing','vk_ads_headers','vk_ads_descriptions',
+  'keywords_generator','google_ads_headers','aida_model','google_ads_descriptions','yandex_direct_descriptions',
+  'post_headers','blog_post_ideas','email_newsletter','blog_plan','video_ideas','youtube_title','short_video_script',
+  'youtube_tags','blog_ideas','youtube_description','reels_script','blog_intro',
+  'apology_letter','push_notification','localize_text','info_mailing','faq_generator','cover_letter','slogan_generator',
+  'biography_writer','mailing_generator','review_replies','business_strategy','email_autoreply','startup_ideas',
+  'reviews_generator','commercial_offer','resume_builder','name_generator','brainstorm','job_application_letter',
+  'article_generator','hr_specialist',
+]);
+function toolIcon(t) {
+  if (TOOLS_WITH_OWN_ICON.has(t.name)) return `/static/icons/${t.name}.png`;
+  return categoryIcon(t.category);
+}
 
 function getApiKey() {
   let key = localStorage.getItem('ylights_api_key');
@@ -134,6 +164,7 @@ function renderTools() {
   const grid = document.getElementById('tools');
   grid.innerHTML = filtered.map(t => `
     <div class="tool-card" onclick="openTool('${t.name}')">
+      <img class="tool-icon" src="${toolIcon(t)}" alt="">
       <div class="tool-category">${t.category}</div>
       <div class="tool-name">${t.name}</div>
       <div class="tool-desc">${(t.description||'').replace(/^\[.*?\]\s*/, '')}</div>
