@@ -1,0 +1,19 @@
+services:
+  ylights-mcp:
+    build: .
+    container_name: ylights-mcp
+    ports:
+      - "3001:3001"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - PYTHONUTF8=1
+      - PROMPTS_REPO_URL=https://github.com/Ylights-dev/Yl_Promts.git
+      - PROMPTS_REPO_DIR=/data/Yl_Promts
+      - PROMPTS_SYNC_INTERVAL=1800
+      - MCP_API_KEY=${MCP_API_KEY:-}
+    volumes:
+      - prompts-data:/data
+    restart: unless-stopped
+
+volumes:
+  prompts-data:

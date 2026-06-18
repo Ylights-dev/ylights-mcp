@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ylights Tools — AI инструменты</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; color: #1a1a1a; }
+.app-header { background: #fff; border-bottom: 1px solid #e5e5e5; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
+.logo { font-size: 20px; font-weight: 700; background: linear-gradient(135deg, #6E89FD, #4ABBB7); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.tools-page { max-width: 1400px; margin: 0 auto; padding: 24px; }
+h1 { font-size: 28px; font-weight: 600; margin-bottom: 24px; }
+.search-box { width: 100%; max-width: 400px; padding: 10px 16px; border: 1px solid #e5e5e5; border-radius: 12px; font-size: 14px; margin-bottom: 20px; }
+.search-box:focus { outline: none; border-color: #6E89FD; box-shadow: 0 0 0 3px rgba(110,137,253,0.15); }
+.category-bar { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 24px; }
+.cat-btn { padding: 8px 16px; border: 1px solid #e5e5e5; background: #fff; border-radius: 8px; font-size: 13px; cursor: pointer; transition: all 0.2s; }
+.cat-btn:hover { border-color: #6E89FD; }
+.cat-btn.active { background: linear-gradient(135deg, #6E89FD, #4ABBB7); color: #fff; border-color: transparent; }
+.tools-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+.tool-card { background: #fff; border: 1px solid #e5e5e5; border-radius: 12px; padding: 20px; cursor: pointer; transition: all 0.2s; }
+.tool-card:hover { border-color: #6E89FD; box-shadow: 0 4px 12px rgba(110,137,253,0.15); transform: translateY(-2px); }
+.tool-name { font-size: 16px; font-weight: 600; margin-bottom: 8px; }
+.tool-desc { font-size: 13px; color: #666; line-height: 1.5; }
+.tool-category { display: inline-block; font-size: 11px; color: #6E89FD; background: rgba(110,137,253,0.1); padding: 2px 8px; border-radius: 4px; margin-bottom: 8px; }
+.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center; }
+.modal-overlay.show { display: flex; }
+.modal { background: #fff; border-radius: 16px; padding: 24px; max-width: 600px; width: 90%; max-height: 80vh; overflow-y: auto; }
+.modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+.modal-title { font-size: 20px; font-weight: 600; }
+.modal-close { background: none; border: none; font-size: 24px; cursor: pointer; color: #999; }
+.modal-close:hover { color: #1a1a1a; }
+.form-group { margin-bottom: 16px; }
+.form-label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; }
+.form-input, .form-textarea { width: 100%; padding: 10px 12px; border: 1px solid #e5e5e5; border-radius: 8px; font-size: 14px; font-family: inherit; }
+.form-textarea { min-height: 100px; resize: vertical; }
+.form-input:focus, .form-textarea:focus { outline: none; border-color: #6E89FD; }
+.btn { padding: 10px 20px; border: none; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; transition: all 0.2s; }
+.btn-primary { background: linear-gradient(135deg, #6E89FD, #4ABBB7); color: #fff; }
+.btn-primary:hover { opacity: 0.9; }
+.result-box { margin-top: 20px; padding: 16px; background: #f9f9f9; border-radius: 8px; white-space: pre-wrap; font-size: 13px; line-height: 1.6; display: none; }
+.loading { text-align: center; padding: 20px; color: #999; }
+.error { color: #e53e3e; background: #fff5f5; padding: 12px; border-radius: 8px; margin-top: 12px; }
+</style>
+</head>
+<body>
+<header class="app-header">
+  <div class="logo">⚡ Ylights Tools</div>
+  <div style="font-size:13px;color:#999;">MCP Server</div>
+</header>
+
+<main class="tools-page">
+  <h1>Инструменты</h1>
+  <input type="text" class="search-box" id="search" placeholder="Поиск инструментов...">
+  
+  <div class="category-bar" id="categories"></div>
+  <div class="tools-grid" id="tools"></div>
+</main>
+
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-title"></div>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div id="modal-body"></div>
+    <div class="result-box" id="result"></div>
+  </div>
+</div>
+
+<script>
+let tools = [];
+let categories = ['Все'];
+let currentCategory = 'Все';
+let currentTool = null;
+
+async function init() {
+  await loadTools();
+  renderCategories();
+  renderTools();
+  document.getElementById('search').addEventListener('input', renderTools);
+}
+
+async function loadTools() {
+  const r = await fetch('/api/tools');
+  const data = await r.json();
+  tools = data.tools;
+  const seen = new Set();
+  categories = ['Все'];
+  for (const t of tools) {
+    if (!seen.has(t.category)) { seen.add(t.category); categories.push(t.category); }
+  }
+}
+
+function renderCategories() {
+  const bar = document.getElementById('categories');
+  bar.innerHTML = categories.map(cat =>
+    `<button class="cat-btn${cat===currentCategory?' active':''}" onclick="setCategory('${cat}')">${cat}</button>`
+  ).join('');
+}
+
+function setCategory(cat) {
+  currentCategory = cat;
+  renderCategories();
+  renderTools();
+}
+
+function renderTools() {
+  const q = document.getElementById('search').value.toLowerCase();
+  const filtered = tools.filter(t => {
+    const matchCat = currentCategory === 'Все' || t.category === currentCategory;
+    const matchQ = !q || t.name.toLowerCase().includes(q) || (t.description||'').toLowerCase().includes(q);
+    return matchCat && matchQ;
+  });
+  const grid = document.getElementById('tools');
+  grid.innerHTML = filtered.map(t => `
+    <div class="tool-card" onclick="openTool('${t.name}')">
+      <div class="tool-category">${t.category}</div>
+      <div class="tool-name">${t.name}</div>
+      <div class="tool-desc">${(t.description||'').replace(/^\[.*?\]\s*/, '')}</div>
+    </div>
+  `).join('') || '<p style="color:#999;grid-column:1/-1;text-align:center;padding:40px">Ничего не найдено</p>';
+}
+
+function openTool(name) {
+  currentTool = tools.find(t => t.name === name);
+  if (!currentTool) return;
+  document.getElementById('modal-title').textContent = name;
+  const body = document.getElementById('modal-body');
+  const props = currentTool.inputSchema?.properties || {};
+  const required = currentTool.inputSchema?.required || [];
+  let html = '';
+  for (const [key, schema] of Object.entries(props)) {
+    const req = required.includes(key) ? ' *' : '';
+    const ph = schema.description || key;
+    if (schema.enum) {
+      html += `<div class="form-group"><label class="form-label">${key}${req}</label><select class="form-input" data-key="${key}">${schema.enum.map(v=>`<option value="${v}">${v}</option>`).join('')}</select></div>`;
+    } else if (schema.type === 'boolean') {
+      html += `<div class="form-group"><label class="form-label"><input type="checkbox" data-key="${key}" ${schema.default?'checked':''}> ${key}${req}</label></div>`;
+    } else if (schema.type === 'number') {
+      html += `<div class="form-group"><label class="form-label">${key}${req}</label><input class="form-input" type="number" data-key="${key}" value="${schema.default||''}" placeholder="${ph}"></div>`;
+    } else {
+      html += `<div class="form-group"><label class="form-label">${key}${req}</label><textarea class="form-textarea" data-key="${key}" placeholder="${ph}">${schema.default||''}</textarea></div>`;
+    }
+  }
+  html += `<button class="btn btn-primary" onclick="runTool()" style="width:100%">Выполнить</button>`;
+  body.innerHTML = html;
+  document.getElementById('result').style.display = 'none';
+  document.getElementById('modal').classList.add('show');
+}
+
+function closeModal() {
+  document.getElementById('modal').classList.remove('show');
+}
+
+async function runTool() {
+  const result = document.getElementById('result');
+  result.style.display = 'block';
+  result.innerHTML = '<div class="loading">Выполняю...</div>';
+  const args = {};
+  document.querySelectorAll('[data-key]').forEach(el => {
+    const key = el.dataset.key;
+    if (el.type === 'checkbox') args[key] = el.checked;
+    else if (el.type === 'number') args[key] = parseFloat(el.value) || 0;
+    else args[key] = el.value;
+  });
+  try {
+    const r = await fetch('/api/call', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tool: currentTool.name, arguments: args }),
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || `HTTP ${r.status}`);
+    result.textContent = data.result;
+  } catch (e) {
+    result.innerHTML = `<div class="error">Ошибка: ${e.message}</div>`;
+  }
+}
+
+document.addEventListener('click', (e) => {
+  if (e.target.id === 'modal') closeModal();
+});
+
+init();
+</script>
+</body>
+</html>
