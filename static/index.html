@@ -74,17 +74,36 @@ let categories = ['Все'];
 let currentCategory = 'Все';
 let currentTool = null;
 
+function getApiKey() {
+  let key = localStorage.getItem('ylights_api_key');
+  if (key === null) {
+    key = prompt('Введите API-ключ сервера (см. ключницу)') || '';
+    localStorage.setItem('ylights_api_key', key);
+  }
+  return key;
+}
+
+function apiHeaders() {
+  return { 'Content-Type': 'application/json', 'X-API-Key': getApiKey() };
+}
+
 async function init() {
-  await loadTools();
-  renderCategories();
-  renderTools();
+  try {
+    await loadTools();
+    renderCategories();
+    renderTools();
+  } catch (e) {
+    document.getElementById('tools').innerHTML =
+      `<p style="color:#e53e3e;grid-column:1/-1;text-align:center;padding:40px">Ошибка загрузки: ${e.message}. <a href="#" onclick="localStorage.removeItem('ylights_api_key');location.reload()">Сбросить ключ</a></p>`;
+  }
   document.getElementById('search').addEventListener('input', renderTools);
 }
 
 async function loadTools() {
-  const r = await fetch('/api/tools');
+  const r = await fetch('/api/tools', { headers: apiHeaders() });
   const data = await r.json();
-  tools = data.tools;
+  if (!r.ok) throw new Error(data.error || `HTTP ${r.status}`);
+  tools = data.tools || [];
   const seen = new Set();
   categories = ['Все'];
   for (const t of tools) {
@@ -167,7 +186,7 @@ async function runTool() {
   try {
     const r = await fetch('/api/call', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: apiHeaders(),
       body: JSON.stringify({ tool: currentTool.name, arguments: args }),
     });
     const data = await r.json();
